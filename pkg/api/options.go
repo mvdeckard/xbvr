@@ -61,6 +61,9 @@ type RequestSaveOptionsWeb struct {
 	ShowOpenInNewWindow bool   `json:"showOpenInNewWindow"`
 	UpdateCheck         bool   `json:"updateCheck"`
 	IsAvailOpacity      int    `json:"isAvailOpacity"`
+	CardSizeScenes      string `json:"cardSizeScenes"`
+	CardSizeActors      string `json:"cardSizeActors"`
+	PersistentCardSize  bool   `json:"persistentCardSize"`
 }
 
 type RequestSaveOptionsAdvanced struct {
@@ -497,6 +500,9 @@ func (i ConfigResource) saveOptionsWeb(req *restful.Request, resp *restful.Respo
 	config.Config.Web.ShowOpenInNewWindow = r.ShowOpenInNewWindow
 	config.Config.Web.UpdateCheck = r.UpdateCheck
 	config.Config.Web.IsAvailOpacity = r.IsAvailOpacity
+	config.Config.Web.CardSizeScenes = r.CardSizeScenes
+	config.Config.Web.CardSizeActors = r.CardSizeActors
+	config.Config.Web.PersistentCardSize = r.PersistentCardSize
 	config.SaveConfig()
 
 	resp.WriteHeaderAndEntity(http.StatusOK, r)

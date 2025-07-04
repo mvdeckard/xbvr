@@ -147,23 +147,25 @@ export default {
   computed: {
     cardSize: {
       get () {
-        return this.$store.state.actorList.filters.cardSize
+        return this.$store.state.optionsWeb.web.cardSizeActors
       },
       set (value) {
+        const prev = this.$store.state.optionsWeb.web.cardSizeActors
+        if (prev !== value) {
+          this.$store.state.optionsWeb.web.cardSizeActors = value
+          if (this.$store.state.optionsWeb.web.persistentCardSize) {
+            this.$store.dispatch('optionsWeb/save')
+          }
+        }
         this.$store.state.actorList.filters.cardSize = value
         switch (value){
-          case "1":
-            this.limit=18
-            break
-          case "2":
-            this.limit=10
-            break
-          case "3":
-            this.limit=8
-            break
-            }            
-        }      
-    },
+          case "1": this.limit=18; break;
+          case "2": this.limit=10; break;
+          case "3": this.limit=8; break;
+        }
+      }
+        }
+    },  
     limit: {
       get(){
         return this.$store.state.actorList.limit
@@ -191,7 +193,7 @@ export default {
       }
     },
     cardSizeClass () {
-      switch (this.$store.state.actorList.filters.cardSize) {
+      switch (this.$store.state.optionsWeb.web.cardSizeActors) {
         case '1':
           return 'is-2'
         case '2':
@@ -238,6 +240,15 @@ export default {
         return false
         },
     },
+  watch: {
+    '$store.state.optionsWeb.web.cardSizeActors': {
+      handler (newVal) {
+        if (newVal && this.$store.state.actorList.filters.cardSize !== newVal) {
+          this.$store.state.actorList.filters.cardSize = newVal
+        }
+      },
+      immediate: true
+    }
   },
   methods: {
     reloadList () {

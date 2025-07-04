@@ -617,7 +617,7 @@ func (i ExternalReference) searchForStashdbActor(req *restful.Request, resp *res
 					xbvrsite := xbvrScene.Site
 					var siteRef models.ExternalReferenceLink
 					commonDb.Where(&models.ExternalReferenceLink{InternalTable: "sites", InternalNameId: xbvrScene.ScraperId, ExternalSource: "stashdb studio"}).First(&siteRef)
-					if strings.Index(xbvrsite, " (") != -1 {
+					if strings.Contains(xbvrsite, " (") {
 						xbvrsite = xbvrsite[:strings.Index(xbvrsite, " (")]
 					}
 					if strings.EqualFold(stashStudio.Studio.Name, xbvrsite) || siteRef.ExternalId == stashStudio.Studio.ID {

@@ -20,7 +20,10 @@ const state = {
     showScriptHeatmap: false,
     showAllHeatmaps: false,
     showOpenInNewWindow: true,
-    updateCheck: true
+    updateCheck: true,
+    cardSizeScenes: '2',
+    cardSizeActors: '2',
+    persistentCardSize: false
   }
 }
 
@@ -49,6 +52,9 @@ const actions = {
         state.web.updateCheck = data.config.web.updateCheck
         state.web.isAvailOpacity = data.config.web.isAvailOpacity 
         state.web.showOpenInNewWindow = data.config.web.showOpenInNewWindow
+        state.web.cardSizeScenes = data.config.web.cardSizeScenes
+        state.web.cardSizeActors = data.config.web.cardSizeActors
+        state.web.persistentCardSize = data.config.web.persistentCardSize
         state.loading = false
       })
   },
@@ -74,6 +80,9 @@ const actions = {
         state.web.updateCheck = data.updateCheck
         state.web.isAvailOpacity = data.isAvailOpacity        
         state.web.showOpenInNewWindow = data.showOpenInNewWindow
+        state.web.cardSizeScenes = data.cardSizeScenes
+        state.web.cardSizeActors = data.cardSizeActors
+        state.web.persistentCardSize = data.persistentCardSize
         state.loading = false
       })
   }

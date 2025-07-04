@@ -90,6 +90,11 @@
                 show Open Tag in New Window
               </b-switch>
             </b-field>
+            <b-field>
+              <b-switch v-model="persistentCardSize" type="is-dark">
+                Persistent Card Size
+              </b-switch>
+            </b-field>
             <b-field label="Opacity of unavailable scenes">
               <div class="columns">
                 <div class="column is-two-thirds">
@@ -252,6 +257,14 @@ export default {
       },
       set (value) {
         this.$store.state.optionsWeb.web.showOpenInNewWindow = value
+      }
+    },
+    persistentCardSize: {
+      get () {
+        return this.$store.state.optionsWeb.web.persistentCardSize
+      },
+      set (value) {
+        this.$store.state.optionsWeb.web.persistentCardSize = value
       }
     },
     isAvailOpacity: {

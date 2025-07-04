@@ -47,6 +47,9 @@ type ObjectConfig struct {
 		ShowOpenInNewWindow bool   `default:"true" json:"showOpenInNewWindow"`
 		UpdateCheck         bool   `default:"true" json:"updateCheck"`
 		IsAvailOpacity      int    `default:"40" json:"isAvailOpacity"`
+		CardSizeScenes      string `default:"1" json:"cardSizeScenes"`
+		CardSizeActors      string `default:"1" json:"cardSizeActors"`
+		PersistentCardSize  bool   `default:"true" json:"persistentCardSize"`
 	} `json:"web"`
 	Advanced struct {
 		ShowInternalSceneId          bool      `default:"false" json:"showInternalSceneId"`

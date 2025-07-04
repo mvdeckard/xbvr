@@ -70,14 +70,19 @@ export default {
   computed: {
     cardSize: {
       get () {
-        return this.$store.state.sceneList.filters.cardSize
+        return this.$store.state.optionsWeb.web.cardSizeScenes
       },
       set (value) {
+        const prev = this.$store.state.optionsWeb.web.cardSizeScenes
+        this.$store.state.optionsWeb.web.cardSizeScenes = value
         this.$store.state.sceneList.filters.cardSize = value
+        if (this.$store.state.optionsWeb.web.persistentCardSize && prev !== value) {
+          this.$store.dispatch('optionsWeb/save')
+        }
       }
     },
     cardSizeClass () {
-      switch (this.$store.state.sceneList.filters.cardSize) {
+      switch (this.$store.state.optionsWeb.web.cardSizeScenes) {
         case '1':
           return 'is-one-fifth'
         case '2':
@@ -150,6 +155,16 @@ export default {
       }
       
       return this.$store.state.sceneList.show_scene_id
+    }
+  },
+  watch: {
+    '$store.state.optionsWeb.web.cardSizeScenes': {
+      handler (newVal) {
+        if (newVal && this.$store.state.sceneList.filters.cardSize !== newVal) {
+          this.$store.state.sceneList.filters.cardSize = newVal
+        }
+      },
+      immediate: true
     }
   },
   methods: {
