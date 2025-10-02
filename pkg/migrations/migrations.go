@@ -55,10 +55,14 @@ func (i *RequestSceneList) ToJSON() string {
 }
 
 func Migrate() {
+	tlog := common.Log.WithField("task", "migration")
+	tlog.Info("Starting database migrations...")
+	config.State.Migration.IsRunning = true
+
 	var retryMigration []string
 	db, _ := models.GetDB()
 
-	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
+	migrations := []*gormigrate.Migration{
 		{
 			ID: "0001",
 			Migrate: func(tx *gorm.DB) error {
@@ -2385,8 +2389,13 @@ func Migrate() {
 							}
 						}
 					}
-					if cnt%100 == 0 {
-						common.Log.Infof("Migration 0086-update-vrporn-ids has renamed %v scene ids of %v", cnt+1, len(scenes))
+					if cnt%10 == 0 {
+						msg := fmt.Sprintf("Migration 0086-update-vrporn-ids has migrated %v scenes of %v", cnt+1, len(scenes))
+						config.UpdateMigrationStatus("0086-update-vrporn-ids", cnt+1, len(scenes), msg)
+						// Only log every 100 to reduce console spam
+						if cnt%100 == 0 {
+							common.Log.WithField("task", "migration").Infof(msg)
+						}
 					}
 				}
 				if reindexRequired {
@@ -2397,21 +2406,44 @@ func Migrate() {
 				return nil
 			},
 		},
-	})
+	}
+
+	// Wrap migrations to automatically track progress
+	totalMigrations := len(migrations)
+	wrappedMigrations := make([]*gormigrate.Migration, len(migrations))
+	for i, migration := range migrations {
+		currentIndex := i
+		originalMigrate := migration.Migrate
+		wrappedMigrations[i] = &gormigrate.Migration{
+			ID: migration.ID,
+			Migrate: func(tx *gorm.DB) error {
+				// Update status before running migration
+				msg := fmt.Sprintf("Running migration %s", migrations[currentIndex].ID)
+				tlog.Infof(msg)
+				config.UpdateMigrationStatus(migrations[currentIndex].ID, currentIndex+1, totalMigrations, msg)
+
+				// Run the actual migration
+				return originalMigrate(tx)
+			},
+		}
+	}
+
+	m := gormigrate.New(db, gormigrate.DefaultOptions, wrappedMigrations)
 
 	if err := m.Migrate(); err != nil {
-		common.Log.Fatalf("Could not migrate: %v", err)
+		tlog.Fatalf("Could not migrate: %v", err)
 	}
 	if len(retryMigration) > 0 {
 		for _, migration := range retryMigration {
-			common.Log.Warnf("*** MIGRATION WARNING ***: Could not migrate: '%v', this migration will retry the next time XBVR is started", migration)
+			tlog.Warnf("*** MIGRATION WARNING ***: Could not migrate: '%v', this migration will retry the next time XBVR is started", migration)
 			err := db.Exec("DELETE FROM migrations WHERE id = ?", migration).Error
 			if err != nil {
-				common.Log.Fatalf("Failed to remove %v from the miigration table - will not be retried", err)
+				tlog.Fatalf("Failed to remove %v from the miigration table - will not be retried", err)
 			}
 		}
 	}
-	common.Log.Printf("Migration did run successfully")
+	tlog.Info("Database migrations completed successfully")
+	config.CompleteMigration()
 
 	db.Close()
 }

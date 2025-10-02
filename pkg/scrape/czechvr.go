@@ -47,8 +47,15 @@ func CzechVR(wg *models.ScrapeWG, updateSite bool, knownScenes []string, out cha
 		// Title
 		e.ForEach(`div.post div.nazev h1`, func(id int, e *colly.HTMLElement) {
 			fullTitle := strings.TrimSpace(e.Text)
-			sc.Title = strings.Split(fullTitle, " - ")[1]
-			tmp := strings.Split(strings.Split(fullTitle, " - ")[0], " ")
+			titleParts := strings.Split(fullTitle, " - ")
+			if len(titleParts) < 2 {
+				return
+			}
+			sc.Title = titleParts[1]
+			tmp := strings.Split(titleParts[0], " ")
+			if len(tmp) == 0 {
+				return
+			}
 			sc.SiteID = tmp[len(tmp)-1]
 			sc.SceneID = slugify.Slugify(sc.Site) + "-" + sc.SiteID
 		})
@@ -90,10 +97,12 @@ func CzechVR(wg *models.ScrapeWG, updateSite bool, knownScenes []string, out cha
 
 		// Duration
 		e.ForEach(`div.post div#info div.cas`, func(id int, e *colly.HTMLElement) {
-			tmpDuration, err := strconv.Atoi(strings.Split(e.Text, ":")[0])
-
-			if err == nil {
-				sc.Duration = tmpDuration
+			durationParts := strings.Split(e.Text, ":")
+			if len(durationParts) > 0 {
+				tmpDuration, err := strconv.Atoi(durationParts[0])
+				if err == nil {
+					sc.Duration = tmpDuration
+				}
 			}
 		})
 
@@ -109,7 +118,7 @@ func CzechVR(wg *models.ScrapeWG, updateSite bool, knownScenes []string, out cha
 		//  extract internal id with (\d+)
 		var re = regexp.MustCompile(`(?m)https:\/\/www.czechvrnetwork.com\/detail-(\d+)`)
 		r := re.FindStringSubmatch(sc.HomepageURL)
-		if len(r) > 0 {
+		if len(r) > 1 {
 			sc.TrailerType = "heresphere"
 			params := models.TrailerScrape{SceneUrl: "https://www.czechvrnetwork.com/heresphere/videoID" + r[1]}
 			strParams, _ := json.Marshal(params)
@@ -119,9 +128,28 @@ func CzechVR(wg *models.ScrapeWG, updateSite bool, knownScenes []string, out cha
 		// Filenames
 		e.ForEach(`div.post div#download div.dlnew a`, func(id int, e *colly.HTMLElement) {
 			if id == 0 {
-				tmp := strings.Split(e.Attr("href"), "/")
-				parts := strings.Split(tmp[len(tmp)-1], "-")
-				base := parts[0] + "-" + parts[1] + "-" + parts[2]
+				var base string
+				href := e.Attr("href")
+				lastSlash := strings.LastIndex(href, "/")
+
+				// Try to parse filename from download link
+				if lastSlash != -1 && lastSlash < len(href)-1 {
+					filename := href[lastSlash+1:]
+					parts := strings.SplitN(filename, "-", 4)
+					if len(parts) >= 3 {
+						base = parts[0] + "-" + parts[1] + "-" + parts[2]
+					}
+				}
+
+				// Fallback: synthesize base from scene ID if parsing failed
+				if base == "" && sc.SiteID != "" {
+					base = sc.SiteID + "-" + strings.ToLower(strings.ReplaceAll(sc.Site, " ", "")) + "-3d"
+				}
+
+				// If we still don't have a base, skip filename generation
+				if base == "" {
+					return
+				}
 
 				filenames := []string{
 					"1920x960-30fps-smartphone_lq",
