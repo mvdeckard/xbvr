@@ -54,6 +54,11 @@ func (i *RequestSceneList) ToJSON() string {
 	return string(b)
 }
 
+// getVRPornSlugToIDMap returns the hardcoded slug-to-ID mapping
+func getVRPornSlugToIDMap() (map[string]string, error) {
+	return getVRPornSlugToID(), nil
+}
+
 func Migrate() {
 	tlog := common.Log.WithField("task", "migration")
 	tlog.Info("Starting database migrations...")
@@ -2348,9 +2353,18 @@ func Migrate() {
 			ID: "0086-update-vrporn-ids",
 			Migrate: func(tx *gorm.DB) error {
 				common.Log.Info("Running migration 0086-update-vrporn-ids to convert VRPorn Scene Ids, this may take a while, check for completion message")
+
+				// Load the hardcoded slug-to-ID mapping
+				slugToID, err := getVRPornSlugToIDMap()
+				if err != nil {
+					common.Log.Errorf("Migration 0086-update-vrporn-ids failed to load slug-to-ID mapping: %v", err)
+					return err
+				}
+				common.Log.Infof("Migration 0086-update-vrporn-ids loaded %d slug-to-ID mappings", len(slugToID))
+
 				var scenes []models.Scene
 				var deleteSceneList []models.Scene
-				err := tx.Where("scene_id like 'vrporn-%'").Find(&scenes).Error
+				err = tx.Where("scene_id like 'vrporn-%'").Find(&scenes).Error
 				if err != nil {
 					return err
 				}
@@ -2358,23 +2372,16 @@ func Migrate() {
 				for cnt, scene := range scenes {
 					// check if the scene has the old id, ie vrporn-9999999, new id has a guid eg vrporn-dd46fb64-8739-11f0-bcbc-17646356a97f
 					if strings.Count(scene.SceneID, "-") == 1 {
-						r, restErr := resty.New().R().Get("https://vrporn.com/proxy/api/content/v1/post/" + path.Base(scene.SceneURL))
-						if restErr != nil {
-							common.Log.Infof("Migration 0086-update-vrporn-ids failed to get new scene details for %s", scene.SceneID)
-							return restErr
-						}
-						if r.RawResponse.StatusCode == 404 {
-							common.Log.Infof("Unable to migrate VRPorn scene %s - not found", scene.SceneID)
-						}
-						if r.RawResponse.StatusCode != 200 && r.RawResponse.StatusCode != 404 {
-							common.Log.Warnf("Unable to migrate VRPorn scene with new id %s, return code %s", scene.SceneID, r.RawResponse.Status)
-						}
-						statusMsg := gjson.Get(r.String(), "status.message").String()
-						if statusMsg == "Ok" {
-							sceneID := "vrporn-" + gjson.Get(r.String(), "data.item.id").String()
+						slug := path.Base(scene.SceneURL)
+
+						// Look up the new ID from the hardcoded mapping
+						newID, found := slugToID["/"+slug+"/"]
+						if !found {
+							common.Log.Infof("VRPorn %s (%s) - site deleted this scene", scene.SceneID, slug)
+						} else {
+							sceneID := "vrporn-" + newID
 							if scene.SceneID != sceneID {
 								deleteSceneList = append(deleteSceneList, scene)
-								slug := gjson.Get(r.String(), "data.item.slug").String()
 								params := models.TrailerScrape{SceneUrl: "https://vrporn.com/proxy/api/content/v1/post/" + slug}
 								strParams, _ := json.Marshal(params)
 								scene.TrailerType = "vrporn"
@@ -2382,10 +2389,6 @@ func Migrate() {
 								scene.Save()
 								MigrationRenameSceneId(tx, scene, sceneID, 1)
 								reindexRequired = true
-							}
-						} else {
-							if statusMsg != "Not Found" { // ignore not found, already logged
-								common.Log.Warnf("Unable to migrate VRPorn scene with new id %s, VRPorn Api Status %s", scene.SceneID, statusMsg)
 							}
 						}
 					}
@@ -2399,6 +2402,8 @@ func Migrate() {
 					}
 				}
 				if reindexRequired {
+					config.UpdateMigrationStatus("0086-update-vrporn-ids", len(scenes), len(scenes), "Reindexing scenes...")
+					common.Log.Info("Migration 0086-update-vrporn-ids reindexing scenes...")
 					tasks.DeleteIndexScenes(&deleteSceneList) // remove the old scene id entries
 					tasks.SearchIndex()
 				}
@@ -2454,9 +2459,6 @@ func MigrationRenameSceneId(tx *gorm.DB, scene models.Scene, newSceneID string, 
 
 	if scene.SceneID == newSceneID {
 		return nil
-	}
-	if scene.SceneID == "vrporn-2002279" {
-		common.Log.Info("check")
 	}
 	switch version {
 	case 1:
